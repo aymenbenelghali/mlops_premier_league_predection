@@ -1,0 +1,20 @@
+artifact_path: model_total_cards
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.4
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.5.2
+mlflow_version: 2.16.2
+model_size_bytes: 325156
+model_uuid: 704899e6136d447bb3a2397604a608e4
+run_id: 34f2908f14674c0f82dbae75017e3c6e
+utc_time_created: '2025-11-04 14:38:59.654220'

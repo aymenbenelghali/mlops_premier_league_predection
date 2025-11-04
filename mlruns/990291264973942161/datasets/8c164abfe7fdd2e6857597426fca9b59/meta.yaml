@@ -1,0 +1,8 @@
+digest: 61616c6b
+name: dataset
+profile: '{"num_rows": 287, "num_elements": 574}'
+schema: '{"mlflow_colspec": [{"type": "long", "name": "y_true", "required": true},
+  {"type": "float", "name": "y_pred", "required": true}]}'
+source: '{"tags": {"mlflow.user": "aymen", "mlflow.source.name": "C:\\Users\\aymen\\premier_league_prediction\\src\\train.py",
+  "mlflow.source.type": "LOCAL", "mlflow.source.git.commit": "41e9fc0538a7d9e771e4f1aff9b7d98d73e2165d"}}'
+source_type: code

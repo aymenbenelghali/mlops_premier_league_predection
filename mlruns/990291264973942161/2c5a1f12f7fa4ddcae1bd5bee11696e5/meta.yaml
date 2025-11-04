@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/aymen/premier_league_prediction/mlruns/990291264973942161/2c5a1f12f7fa4ddcae1bd5bee11696e5/artifacts
+end_time: 1762267373709
+entry_point_name: ''
+experiment_id: '990291264973942161'
+lifecycle_stage: active
+run_id: 2c5a1f12f7fa4ddcae1bd5bee11696e5
+run_name: fortunate-finch-747
+run_uuid: 2c5a1f12f7fa4ddcae1bd5bee11696e5
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762267373666
+status: 3
+tags: []
+user_id: aymen

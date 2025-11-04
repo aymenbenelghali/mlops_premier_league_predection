@@ -11,6 +11,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 import matplotlib.pyplot as plt
+import mlflow
+import mlflow.sklearn
 
 try:
     import shap  # type: ignore
@@ -106,6 +108,17 @@ def plot_diagnostics(y_true: np.ndarray, y_pred: np.ndarray, feature_names: List
 
 
 def main() -> None:
+    # Configure MLflow (default to local file store if not provided)
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns")
+    mlflow.set_tracking_uri(tracking_uri)
+    experiment = os.getenv("MLFLOW_EXPERIMENT", "PL-XGB")
+    mlflow.set_experiment(experiment)
+    # Enable sklearn autolog to guarantee metrics capture even if manual logging fails
+    try:
+        mlflow.sklearn.autolog(log_models=False, silent=True)
+    except Exception:
+        pass
+
     df = load_and_prepare_data()
     data_quality_report(df)
 
@@ -123,28 +136,71 @@ def main() -> None:
 
     os.makedirs(settings.models_dir, exist_ok=True)
     for target in TARGETS:
-        y_train = y_train_all[target]
-        y_test = y_test_all[target]
+        with mlflow.start_run(run_name=f"train_{target}") as run:
+            y_train = y_train_all[target]
+            y_test = y_test_all[target]
 
-        params = None
-        if os.getenv("TUNE_HYPERPARAMS", "false").lower() in ("1", "true", "yes"):
-            params = tune_params(X_train, y_train)
+            params = None
+            if os.getenv("TUNE_HYPERPARAMS", "false").lower() in ("1", "true", "yes"):
+                params = tune_params(X_train, y_train)
 
-        pipe = get_model_pipeline(scale)
-        if params:
-            pipe.set_params(**params)
-        pipe.fit(X_train, y_train)
-        y_pred = pipe.predict(X_test)
+            pipe = get_model_pipeline(scale)
+            if params:
+                pipe.set_params(**params)
+            pipe.fit(X_train, y_train)
+            y_pred = pipe.predict(X_test)
 
-        from sklearn.metrics import mean_absolute_error, mean_squared_error
-        mae = float(mean_absolute_error(y_test, y_pred))
-        rmse = float(mean_squared_error(y_test, y_pred, squared=False))
-        metrics[target] = {"MAE": mae, "RMSE": rmse}
-        best_params_per_target[target] = params or {}
+            from sklearn.metrics import mean_absolute_error, mean_squared_error
+            mae = float(mean_absolute_error(y_test, y_pred))
+            rmse = float(mean_squared_error(y_test, y_pred, squared=False))
+            metrics[target] = {"MAE": mae, "RMSE": rmse}
+            best_params_per_target[target] = params or {}
 
-        # Save model
-        joblib.dump(pipe, os.path.join(settings.models_dir, f"{target}.pkl"))
-        plot_diagnostics(y_test.values, np.asarray(y_pred), feature_cols, pipe.named_steps["xgb"], target)
+            # Log to MLflow
+            mlflow.log_param("target", target)
+            mlflow.log_params(params or {})
+            # Log with both lowercase and uppercase keys so default UI filters (metrics.rmse) work
+            mlflow.log_metrics({"MAE": mae, "RMSE": rmse, "mae": mae, "rmse": rmse})
+            mlflow.log_param("num_features", len(feature_cols))
+            # Tag the run with split sizes
+            mlflow.set_tags({
+                "rows_train": len(X_train),
+                "rows_test": len(X_test),
+                "tracking_uri": tracking_uri,
+            })
+
+            # Save model and log artifacts
+            model_path = os.path.join(settings.models_dir, f"{target}.pkl")
+            joblib.dump(pipe, model_path)
+            mlflow.sklearn.log_model(pipe, artifact_path=f"model_{target}")
+            plot_diagnostics(y_test.values, np.asarray(y_pred), feature_cols, pipe.named_steps["xgb"], target)
+            mlflow.log_artifacts("plots", artifact_path=f"plots_{target}")
+            # Evaluation tables for MLflow UI (Evaluation tab)
+            try:
+                from mlflow import evaluate as mlflow_evaluate
+                # Create evaluation dataframe and log as table via mlflow.evaluate
+                eval_df = pd.DataFrame({
+                    "y_true": y_test.values,
+                    "y_pred": np.asarray(y_pred).ravel(),
+                })
+                # Log a model signature-friendly input example for better UI
+                try:
+                    import sklearn
+                    mlflow.sklearn.log_model(pipe, artifact_path=f"model_{target}_logged", input_example=X_test.head(3))
+                except Exception:
+                    pass
+                mlflow_evaluate(
+                    model=pipe,
+                    data=eval_df,
+                    targets="y_true",
+                    model_type="regressor",
+                    evaluators=["default"],
+                    evaluator_config={"log_table": True, "metric_prefix": f"{target}_"},
+                    feature_names=None,
+                )
+            except Exception:
+                # Non-fatal if evaluation table logging fails
+                pass
 
     # Save metadata and metrics
     meta = {
@@ -158,6 +214,16 @@ def main() -> None:
     hist_cols = ["Date","HomeTeam","AwayTeam","FTHG","FTAG","HY","AY","HR","AR","HC","AC","HO","AO"]
     hist_cols = [c for c in hist_cols if c in df.columns]
     df[hist_cols].to_csv(os.path.join(settings.models_dir, "match_history.csv"), index=False)
+    # Log summary artifacts
+    try:
+        with open(os.path.join(settings.models_dir, "metrics.json"), "r", encoding="utf-8") as f:
+            mlflow.log_text(f.read(), artifact_file="metrics.json")
+        mlflow.log_artifact(os.path.join(settings.models_dir, "metadata.joblib"))
+        if os.path.exists(os.path.join(settings.models_dir, "match_history.csv")):
+            mlflow.log_artifact(os.path.join(settings.models_dir, "match_history.csv"))
+    except Exception:
+        pass
+
     logger.info(f"Training complete. Metrics: {metrics}")
 
 

@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/aymen/premier_league_prediction/mlruns/990291264973942161/b0c6ccad18b7481a869349875ef29ae3/artifacts
+end_time: 1762267139483
+entry_point_name: ''
+experiment_id: '990291264973942161'
+lifecycle_stage: active
+run_id: b0c6ccad18b7481a869349875ef29ae3
+run_name: train_total_goals
+run_uuid: b0c6ccad18b7481a869349875ef29ae3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762267133101
+status: 3
+tags: []
+user_id: aymen

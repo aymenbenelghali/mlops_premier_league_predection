@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/aymen/premier_league_prediction/mlruns/990291264973942161/138f89bffd524073a4954ac36178f403/artifacts
+end_time: 1762267561261
+entry_point_name: ''
+experiment_id: '990291264973942161'
+lifecycle_stage: active
+run_id: 138f89bffd524073a4954ac36178f403
+run_name: intrigued-perch-87
+run_uuid: 138f89bffd524073a4954ac36178f403
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762267561231
+status: 3
+tags: []
+user_id: aymen

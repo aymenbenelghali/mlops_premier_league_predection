@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/aymen/premier_league_prediction/mlruns/990291264973942161/d107b2a7e333443fac1278a85e920384/artifacts
+end_time: 1762267369518
+entry_point_name: ''
+experiment_id: '990291264973942161'
+lifecycle_stage: active
+run_id: d107b2a7e333443fac1278a85e920384
+run_name: train_total_corners
+run_uuid: d107b2a7e333443fac1278a85e920384
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762267365868
+status: 3
+tags: []
+user_id: aymen

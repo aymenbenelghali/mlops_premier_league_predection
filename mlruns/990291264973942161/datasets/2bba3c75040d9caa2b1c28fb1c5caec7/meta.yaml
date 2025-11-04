@@ -1,0 +1,69 @@
+digest: 95a084fc
+name: dataset
+profile: '{"num_rows": 878, "num_elements": 71118}'
+schema: '{"mlflow_colspec": [{"type": "double", "name": "home_avg_goals", "required":
+  true}, {"type": "double", "name": "home_avg_cards", "required": true}, {"type":
+  "double", "name": "home_avg_corners", "required": true}, {"type": "double", "name":
+  "home_avg_offsides", "required": true}, {"type": "double", "name": "away_avg_goals",
+  "required": true}, {"type": "double", "name": "away_avg_cards", "required": true},
+  {"type": "double", "name": "away_avg_corners", "required": true}, {"type": "double",
+  "name": "away_avg_offsides", "required": true}, {"type": "integer", "name": "is_weekend",
+  "required": true}, {"type": "integer", "name": "year", "required": true}, {"type":
+  "integer", "name": "month", "required": true}, {"type": "double", "name": "home_avg_gs_5",
+  "required": true}, {"type": "double", "name": "home_avg_gc_5", "required": true},
+  {"type": "double", "name": "away_avg_gs_5", "required": true}, {"type": "double",
+  "name": "away_avg_gc_5", "required": true}, {"type": "double", "name": "rest_days_home",
+  "required": true}, {"type": "double", "name": "rest_days_away", "required": true},
+  {"type": "double", "name": "h2h_avg_goals", "required": true}, {"type": "double",
+  "name": "home_points_5", "required": true}, {"type": "double", "name": "home_points_10",
+  "required": true}, {"type": "double", "name": "home_gd_5", "required": true}, {"type":
+  "double", "name": "home_gd_10", "required": true}, {"type": "double", "name": "away_points_5",
+  "required": true}, {"type": "double", "name": "away_points_10", "required": true},
+  {"type": "double", "name": "away_gd_5", "required": true}, {"type": "double", "name":
+  "away_gd_10", "required": true}, {"type": "double", "name": "home_elo_like", "required":
+  true}, {"type": "double", "name": "away_elo_like", "required": true}, {"type": "double",
+  "name": "elo_diff", "required": true}, {"type": "double", "name": "points5_diff",
+  "required": true}, {"type": "double", "name": "gd5_diff", "required": true}, {"type":
+  "integer", "name": "away_is_Arsenal", "required": true}, {"type": "integer", "name":
+  "away_is_Aston Villa", "required": true}, {"type": "integer", "name": "away_is_Bournemouth",
+  "required": true}, {"type": "integer", "name": "away_is_Brentford", "required":
+  true}, {"type": "integer", "name": "away_is_Brighton", "required": true}, {"type":
+  "integer", "name": "away_is_Burnley", "required": true}, {"type": "integer", "name":
+  "away_is_Chelsea", "required": true}, {"type": "integer", "name": "away_is_Crystal
+  Palace", "required": true}, {"type": "integer", "name": "away_is_Everton", "required":
+  true}, {"type": "integer", "name": "away_is_Fulham", "required": true}, {"type":
+  "integer", "name": "away_is_Ipswich", "required": true}, {"type": "integer", "name":
+  "away_is_Leeds", "required": true}, {"type": "integer", "name": "away_is_Leicester",
+  "required": true}, {"type": "integer", "name": "away_is_Liverpool", "required":
+  true}, {"type": "integer", "name": "away_is_Luton", "required": true}, {"type":
+  "integer", "name": "away_is_Man City", "required": true}, {"type": "integer", "name":
+  "away_is_Man United", "required": true}, {"type": "integer", "name": "away_is_Newcastle",
+  "required": true}, {"type": "integer", "name": "away_is_Nott''m Forest", "required":
+  true}, {"type": "integer", "name": "away_is_Sheffield United", "required": true},
+  {"type": "integer", "name": "away_is_Southampton", "required": true}, {"type": "integer",
+  "name": "away_is_Sunderland", "required": true}, {"type": "integer", "name": "away_is_Tottenham",
+  "required": true}, {"type": "integer", "name": "away_is_West Ham", "required": true},
+  {"type": "integer", "name": "away_is_Wolves", "required": true}, {"type": "integer",
+  "name": "home_is_Arsenal", "required": true}, {"type": "integer", "name": "home_is_Aston
+  Villa", "required": true}, {"type": "integer", "name": "home_is_Bournemouth", "required":
+  true}, {"type": "integer", "name": "home_is_Brentford", "required": true}, {"type":
+  "integer", "name": "home_is_Brighton", "required": true}, {"type": "integer", "name":
+  "home_is_Burnley", "required": true}, {"type": "integer", "name": "home_is_Chelsea",
+  "required": true}, {"type": "integer", "name": "home_is_Crystal Palace", "required":
+  true}, {"type": "integer", "name": "home_is_Everton", "required": true}, {"type":
+  "integer", "name": "home_is_Fulham", "required": true}, {"type": "integer", "name":
+  "home_is_Ipswich", "required": true}, {"type": "integer", "name": "home_is_Leeds",
+  "required": true}, {"type": "integer", "name": "home_is_Leicester", "required":
+  true}, {"type": "integer", "name": "home_is_Liverpool", "required": true}, {"type":
+  "integer", "name": "home_is_Luton", "required": true}, {"type": "integer", "name":
+  "home_is_Man City", "required": true}, {"type": "integer", "name": "home_is_Man
+  United", "required": true}, {"type": "integer", "name": "home_is_Newcastle", "required":
+  true}, {"type": "integer", "name": "home_is_Nott''m Forest", "required": true},
+  {"type": "integer", "name": "home_is_Sheffield United", "required": true}, {"type":
+  "integer", "name": "home_is_Southampton", "required": true}, {"type": "integer",
+  "name": "home_is_Sunderland", "required": true}, {"type": "integer", "name": "home_is_Tottenham",
+  "required": true}, {"type": "integer", "name": "home_is_West Ham", "required": true},
+  {"type": "integer", "name": "home_is_Wolves", "required": true}]}'
+source: '{"tags": {"mlflow.user": "aymen", "mlflow.source.name": "C:\\Users\\aymen\\premier_league_prediction\\src\\train.py",
+  "mlflow.source.type": "LOCAL", "mlflow.source.git.commit": "41e9fc0538a7d9e771e4f1aff9b7d98d73e2165d"}}'
+source_type: code

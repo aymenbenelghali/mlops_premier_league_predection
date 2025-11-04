@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/aymen/premier_league_prediction/mlruns/990291264973942161/a68005805cea4d709021d3883c36f9fa/artifacts
+end_time: 1762267561214
+entry_point_name: ''
+experiment_id: '990291264973942161'
+lifecycle_stage: active
+run_id: a68005805cea4d709021d3883c36f9fa
+run_name: train_total_offsides
+run_uuid: a68005805cea4d709021d3883c36f9fa
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1762267557513
+status: 3
+tags: []
+user_id: aymen

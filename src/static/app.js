@@ -49,28 +49,9 @@ async function fetchRecent() {
   }
 }
 
-async function predictManual() {
-  const home = document.getElementById('home').value.trim();
-  const away = document.getElementById('away').value.trim();
-  const date = document.getElementById('date').value;
-  const out = document.getElementById('manualOut');
-  out.textContent = 'Predicting...';
-  try {
-    const res = await fetch('/predict_match', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ home_team: home, away_team: away, date })
-    });
-    const data = await res.json();
-    out.textContent = JSON.stringify(data, null, 2);
-  } catch (e) {
-    out.textContent = `Error: ${e}`;
-  }
-}
-
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnFetch').addEventListener('click', fetchUpcoming);
   document.getElementById('btnRecent').addEventListener('click', fetchRecent);
-  document.getElementById('btnPredict').addEventListener('click', predictManual);
   // initial load
   fetchUpcoming();
   fetchRecent();

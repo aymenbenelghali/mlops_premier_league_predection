@@ -67,6 +67,33 @@ MODEL = None
 METADATA: Dict = {}
 HISTORY: pd.DataFrame = pd.DataFrame()
 
+# Common alias -> canonical mapping to match football-data team names
+ALIAS_TO_CANON = {
+    "Manchester United": "Man United",
+    "Man Utd": "Man United",
+    "Man United": "Man United",
+    "Manchester City": "Man City",
+    "Tottenham Hotspur": "Tottenham",
+    "Spurs": "Tottenham",
+    "Wolverhampton": "Wolves",
+    "Wolverhampton Wanderers": "Wolves",
+    "Newcastle United": "Newcastle",
+    "Brighton and Hove Albion": "Brighton",
+    "West Bromwich Albion": "West Brom",
+    "Nottingham Forest": "Nott'm Forest",
+    "Nottm Forest": "Nott'm Forest",
+    "Sheffield United": "Sheffield United",
+    "AFC Bournemouth": "Bournemouth",
+    "Leeds United": "Leeds",
+    "Leicester City": "Leicester",
+}
+
+
+def normalize_team_name(name: str) -> str:
+    if not isinstance(name, str):
+        return name
+    return ALIAS_TO_CANON.get(name.strip(), name.strip())
+
 
 @app.on_event("startup")
 def load_model():
@@ -119,8 +146,9 @@ def compute_team_rolling(history: pd.DataFrame, team: str, cutoff_date: pd.Times
 def team_exists(team: str) -> bool:
     if HISTORY is None or HISTORY.empty:
         return False
+    team_norm = normalize_team_name(team)
     teams = pd.unique(pd.concat([HISTORY["HomeTeam"], HISTORY["AwayTeam"]], ignore_index=True).astype(str))
-    return team in set(teams)
+    return team_norm in set(teams)
 
 
 def validate_request_teams(home_team: str, away_team: str) -> None:
@@ -135,12 +163,15 @@ def validate_request_teams(home_team: str, away_team: str) -> None:
             detail={
                 "error": "Unknown team(s)",
                 "unknown": missing,
-                "hint": "Use exact Premier League team names as in training data; open /docs for examples.",
+                "hint": "Team names are normalized (e.g., 'Manchester United' -> 'Man United'). Check spelling or try short names.",
             },
         )
 
 
 def build_feature_vector(req: MatchRequest) -> pd.DataFrame:
+    # Normalize team names to canonical forms used in training
+    req.home_team = normalize_team_name(req.home_team)
+    req.away_team = normalize_team_name(req.away_team)
     # Validate teams exist in history; ensures model uses each team's last games
     validate_request_teams(req.home_team, req.away_team)
     cutoff = pd.to_datetime(req.date)
@@ -187,6 +218,52 @@ def build_feature_vector(req: MatchRequest) -> pd.DataFrame:
     return row
 
 
+def build_feature_vector_lenient(req: MatchRequest) -> pd.DataFrame:
+    """Lenient builder for upcoming fixtures listing: normalize teams, do not
+    enforce history presence; default missing rolling/team one-hots to 0."""
+    # Normalize
+    req.home_team = normalize_team_name(req.home_team)
+    req.away_team = normalize_team_name(req.away_team)
+    cutoff = pd.to_datetime(req.date)
+    window = int(METADATA.get("rolling_window", settings.rolling_window))
+
+    # Try to compute rolling; if team has no games yet, return NaNs -> fill 0
+    home_stats = compute_team_rolling(HISTORY, req.home_team, cutoff, window)
+    away_stats = compute_team_rolling(HISTORY, req.away_team, cutoff, window)
+
+    data = {
+        "home_avg_goals": home_stats["avg_goals"],
+        "home_avg_cards": home_stats["avg_cards"],
+        "home_avg_corners": home_stats["avg_corners"],
+        "home_avg_offsides": home_stats["avg_offsides"],
+        "away_avg_goals": away_stats["avg_goals"],
+        "away_avg_cards": away_stats["avg_cards"],
+        "away_avg_corners": away_stats["avg_corners"],
+        "away_avg_offsides": away_stats["avg_offsides"],
+        "is_weekend": int(cutoff.weekday() in (5, 6)),
+        "year": cutoff.year,
+        "month": cutoff.month,
+    }
+    feature_cols: List[str] = METADATA.get("feature_columns", [])
+    team_cols: List[str] = METADATA.get("team_columns", [])
+    # Initialize one-hots to 0; set if present in metadata
+    for col in team_cols:
+        data[col] = 0
+    home_col = f"home_is_{req.home_team}"
+    away_col = f"away_is_{req.away_team}"
+    if home_col in team_cols:
+        data[home_col] = 1
+    if away_col in team_cols:
+        data[away_col] = 1
+
+    row = pd.DataFrame([data])
+    for col in feature_cols:
+        if col not in row.columns:
+            row[col] = 0
+    row = row[feature_cols] if feature_cols else row
+    return row.fillna(0)
+
+
 @app.post("/predict_match", response_model=MatchPrediction)
 def predict_match(req: MatchRequest):
     try:
@@ -218,7 +295,199 @@ def predict_match(req: MatchRequest):
 
 @app.get("/predict_upcoming_week")
 def predict_upcoming_week(days: int = 14):
-    # Find latest season CSV in data directory
+    # 1) FPL public API (no auth) – reliable free source
+    try:
+        import requests as _req
+        today = datetime.utcnow().date()
+        horizon = today + pd.Timedelta(days=int(days))
+        # Map team IDs to names
+        bs = _req.get("https://fantasy.premierleague.com/api/bootstrap-static/", timeout=20)
+        bs.raise_for_status()
+        teams = {t["id"]: (t.get("name") or t.get("short_name") or str(t["id"])) for t in bs.json().get("teams", [])}
+        # Fetch all fixtures then filter by date window and status (SCHEDULED)
+        fx = _req.get("https://fantasy.premierleague.com/api/fixtures/", timeout=25)
+        fx.raise_for_status()
+        results_fpl = []
+        for m in fx.json():
+            kt = m.get("kickoff_time")
+            if not kt:
+                continue
+            try:
+                d = pd.to_datetime(kt).date()
+            except Exception:
+                continue
+            if not (today <= d <= (horizon.date() if hasattr(horizon, 'date') else horizon)):
+                continue
+            if m.get("finished_provisional") or m.get("finished"):
+                continue
+            home = teams.get(m.get("team_h"))
+            away = teams.get(m.get("team_a"))
+            if not home or not away:
+                continue
+            req = MatchRequest(home_team=str(home), away_team=str(away), date=str(d))
+            X = build_feature_vector_lenient(req)
+            pred = np.asarray(MODEL.predict(X)).reshape(1, -1)
+            results_fpl.append(
+                {
+                    "date": str(d),
+                    "home_team": req.home_team,
+                    "away_team": req.away_team,
+                    "total_goals": float(pred[0, 0]),
+                    "total_cards": float(pred[0, 1]),
+                    "total_corners": float(pred[0, 2]),
+                    "total_offsides": float(pred[0, 3]),
+                }
+            )
+        if results_fpl:
+            return {"fixtures": sorted(results_fpl, key=lambda x: x["date"]) }
+    except Exception as exc:
+        logger.warning(f"FPL fixtures fetch failed: {exc}")
+
+    # 2) Try external football-data.org if token available
+    token = os.getenv("FOOTBALL_DATA_API_TOKEN")
+    if token:
+        try:
+            base = "https://api.football-data.org/v4/competitions/PL/matches"
+            today = datetime.utcnow().date()
+            date_from = today.isoformat()
+            date_to = (today + pd.Timedelta(days=int(days))).date().isoformat()
+            import requests as _req
+            r = _req.get(
+                base,
+                params={"dateFrom": date_from, "dateTo": date_to, "status": "SCHEDULED,TIMED", "limit": 200},
+                headers={"X-Auth-Token": token},
+                timeout=20,
+            )
+            r.raise_for_status()
+            data = r.json()
+            results = []
+            for m in data.get("matches", []):
+                utc_date = m.get("utcDate")
+                try:
+                    d = pd.to_datetime(utc_date).date()
+                except Exception:
+                    d = today
+                home = m.get("homeTeam", {}).get("shortName") or m.get("homeTeam", {}).get("name")
+                away = m.get("awayTeam", {}).get("shortName") or m.get("awayTeam", {}).get("name")
+                if not home or not away:
+                    continue
+                # Build request row and predict using lenient builder
+                req = MatchRequest(home_team=str(home), away_team=str(away), date=str(d))
+                X = build_feature_vector_lenient(req)
+                pred = np.asarray(MODEL.predict(X)).reshape(1, -1)
+                results.append(
+                    {
+                        "date": str(d),
+                        "home_team": req.home_team,
+                        "away_team": req.away_team,
+                        "total_goals": float(pred[0, 0]),
+                        "total_cards": float(pred[0, 1]),
+                        "total_corners": float(pred[0, 2]),
+                        "total_offsides": float(pred[0, 3]),
+                    }
+                )
+            # If we got any from external API, return immediately
+            if results:
+                return {"fixtures": results}
+        except Exception as exc:
+            logger.warning(f"External fixtures API failed: {exc}; falling back to local CSV.")
+
+    # Secondary source: TheSportsDB (public key defaults to '1')
+    try:
+        tsdb_key = os.getenv("THESPORTSDB_API_KEY", "1")
+        import requests as _req
+        r2 = _req.get(
+            f"https://www.thesportsdb.com/api/v1/json/{tsdb_key}/eventsnextleague.php",
+            params={"id": 4328},  # Premier League league id
+            timeout=20,
+        )
+        if r2.ok:
+            data2 = r2.json() or {}
+            events = data2.get("events") or []
+            results_tsdb = []
+            today = datetime.utcnow().date()
+            horizon = today + pd.Timedelta(days=int(days))
+            for e in events:
+                dstr = e.get("dateEvent")
+                if not dstr:
+                    continue
+                try:
+                    d = pd.to_datetime(dstr).date()
+                except Exception:
+                    continue
+                if not (today <= d <= horizon.date() if hasattr(horizon, 'date') else horizon):
+                    continue
+                home = e.get("strHomeTeam")
+                away = e.get("strAwayTeam")
+                if not home or not away:
+                    continue
+                req = MatchRequest(home_team=str(home), away_team=str(away), date=str(d))
+                X = build_feature_vector_lenient(req)
+                pred = np.asarray(MODEL.predict(X)).reshape(1, -1)
+                results_tsdb.append(
+                    {
+                        "date": str(d),
+                        "home_team": req.home_team,
+                        "away_team": req.away_team,
+                        "total_goals": float(pred[0, 0]),
+                        "total_cards": float(pred[0, 1]),
+                        "total_corners": float(pred[0, 2]),
+                        "total_offsides": float(pred[0, 3]),
+                    }
+                )
+            if results_tsdb:
+                return {"fixtures": results_tsdb}
+
+        # Season-wide fallback: fetch entire season schedule then filter next N days
+        # Derive season string like 2025-2026
+        today_dt = datetime.utcnow()
+        start_year = today_dt.year if today_dt.month >= 8 else today_dt.year - 1
+        season_str = f"{start_year}-{start_year+1}"
+        r3 = _req.get(
+            f"https://www.thesportsdb.com/api/v1/json/{tsdb_key}/eventsseason.php",
+            params={"id": 4328, "s": season_str},
+            timeout=25,
+        )
+        if r3.ok:
+            data3 = r3.json() or {}
+            events3 = data3.get("events") or []
+            results_tsdb2 = []
+            today = datetime.utcnow().date()
+            horizon = today + pd.Timedelta(days=int(days))
+            for e in events3:
+                dstr = e.get("dateEvent")
+                if not dstr:
+                    continue
+                try:
+                    d = pd.to_datetime(dstr).date()
+                except Exception:
+                    continue
+                if not (today <= d <= (horizon.date() if hasattr(horizon, 'date') else horizon)):
+                    continue
+                home = e.get("strHomeTeam")
+                away = e.get("strAwayTeam")
+                if not home or not away:
+                    continue
+                req = MatchRequest(home_team=str(home), away_team=str(away), date=str(d))
+                X = build_feature_vector_lenient(req)
+                pred = np.asarray(MODEL.predict(X)).reshape(1, -1)
+                results_tsdb2.append(
+                    {
+                        "date": str(d),
+                        "home_team": req.home_team,
+                        "away_team": req.away_team,
+                        "total_goals": float(pred[0, 0]),
+                        "total_cards": float(pred[0, 1]),
+                        "total_corners": float(pred[0, 2]),
+                        "total_offsides": float(pred[0, 3]),
+                    }
+                )
+            if results_tsdb2:
+                return {"fixtures": sorted(results_tsdb2, key=lambda x: x["date"]) }
+    except Exception as exc:
+        logger.warning(f"TheSportsDB fallback failed: {exc}")
+
+    # Final fallback: derive from latest downloaded season CSVs (may be empty if future fixtures not present)
     data_files = [f for f in os.listdir(settings.data_dir) if f.startswith("E0_") and f.endswith(".csv")]
     if not data_files:
         raise HTTPException(status_code=400, detail="No season CSVs found. Train the model first to download data.")
