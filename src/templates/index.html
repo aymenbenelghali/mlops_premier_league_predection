@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Premier League Predictions</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <header class="hero">
+      <img class="logo" alt="Premier League" src="https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg" />
+      <div>
+        <h1>Premier League Predictions</h1>
+        <p>Multi-target XGBoost: goals, cards, corners, offsides.</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">
+          <h2>Upcoming (next 14 days)</h2>
+          <button id="btnFetch" class="btn">Refresh</button>
+        </div>
+        <div id="fixtures" class="table-wrap"></div>
+      </div>
+      <div class="card">
+        <h2>Manual Prediction</h2>
+        <div class="row" style="margin-bottom:8px;">
+          <input id="home" placeholder="Home Team (e.g., Arsenal)" />
+          <input id="away" placeholder="Away Team (e.g., Chelsea)" />
+          <input id="date" type="date" />
+          <button id="btnPredict">Predict</button>
+        </div>
+        <pre id="manualOut"></pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <h2>Last 30 days - Results</h2>
+        <button id="btnRecent" class="btn">Refresh</button>
+      </div>
+      <div id="recent" class="table-wrap"></div>
+    </div>
+  </body>
+</html>
+
+
