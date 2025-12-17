@@ -6,6 +6,7 @@ from typing import Dict, List
 import pandas as pd
 import numpy as np
 import joblib
+import json
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -47,6 +48,12 @@ env = Environment(
     autoescape=select_autoescape(["html", "xml"]),
 )
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Global variables
+MODELS: Dict[str, object] = {}
+METADATA: Dict = {}
+HISTORY: pd.DataFrame = pd.DataFrame()
+TEAM_DATA: Dict = {}
 
 
 def load_model_and_metadata():
@@ -185,11 +192,10 @@ def build_feature_vector(req: MatchRequest) -> pd.DataFrame:
         "home_avg_goals": home_stats["avg_goals"],
         "home_avg_cards": home_stats["avg_cards"],
         "home_avg_corners": home_stats["avg_corners"],
-        "home_avg_offsides": home_stats["avg_offsides"],
+        # offsides removed from model features
         "away_avg_goals": away_stats["avg_goals"],
         "away_avg_cards": away_stats["avg_cards"],
         "away_avg_corners": away_stats["avg_corners"],
-        "away_avg_offsides": away_stats["avg_offsides"],
         "is_weekend": int(cutoff.weekday() in (5, 6)),
         "year": cutoff.year,
         "month": cutoff.month,
@@ -285,12 +291,11 @@ def predict_match(req: MatchRequest):
         raise HTTPException(status_code=500, detail=f"Prediction error: {exc}")
 
     pred = np.asarray(pred).reshape(1, -1)
-    return MatchPrediction(
-        total_goals=float(pred[0, 0]),
-        total_cards=float(pred[0, 1]),
-        total_corners=float(pred[0, 2]),
-        total_offsides=float(pred[0, 3]),
-    )
+    return {
+        "total_goals": float(pred[0, 0]),
+        "total_cards": float(pred[0, 1]),
+        "total_corners": float(pred[0, 2]),
+    }
 
 
 @app.get("/predict_upcoming_week")
@@ -301,11 +306,11 @@ def predict_upcoming_week(days: int = 14):
         today = datetime.utcnow().date()
         horizon = today + pd.Timedelta(days=int(days))
         # Map team IDs to names
-        bs = _req.get("https://fantasy.premierleague.com/api/bootstrap-static/", timeout=20)
+        bs = _req.get("https://fantasy.premierleague.com/api/bootstrap-static/", timeout=40)
         bs.raise_for_status()
         teams = {t["id"]: (t.get("name") or t.get("short_name") or str(t["id"])) for t in bs.json().get("teams", [])}
         # Fetch all fixtures then filter by date window and status (SCHEDULED)
-        fx = _req.get("https://fantasy.premierleague.com/api/fixtures/", timeout=25)
+        fx = _req.get("https://fantasy.premierleague.com/api/fixtures/", timeout=60)
         fx.raise_for_status()
         results_fpl = []
         for m in fx.json():
@@ -318,8 +323,7 @@ def predict_upcoming_week(days: int = 14):
                 continue
             if not (today <= d <= (horizon.date() if hasattr(horizon, 'date') else horizon)):
                 continue
-            if m.get("finished_provisional") or m.get("finished"):
-                continue
+            # Do not exclude based on finished flags; rely solely on date window
             home = teams.get(m.get("team_h"))
             away = teams.get(m.get("team_a"))
             if not home or not away:
@@ -383,7 +387,6 @@ def predict_upcoming_week(days: int = 14):
                         "total_goals": float(pred[0, 0]),
                         "total_cards": float(pred[0, 1]),
                         "total_corners": float(pred[0, 2]),
-                        "total_offsides": float(pred[0, 3]),
                     }
                 )
             # If we got any from external API, return immediately
@@ -432,7 +435,6 @@ def predict_upcoming_week(days: int = 14):
                         "total_goals": float(pred[0, 0]),
                         "total_cards": float(pred[0, 1]),
                         "total_corners": float(pred[0, 2]),
-                        "total_offsides": float(pred[0, 3]),
                     }
                 )
             if results_tsdb:
@@ -479,7 +481,6 @@ def predict_upcoming_week(days: int = 14):
                         "total_goals": float(pred[0, 0]),
                         "total_cards": float(pred[0, 1]),
                         "total_corners": float(pred[0, 2]),
-                        "total_offsides": float(pred[0, 3]),
                     }
                 )
             if results_tsdb2:
@@ -542,6 +543,131 @@ def predict_upcoming_week(days: int = 14):
     return {"fixtures": results}
 
 
+@app.get("/upcoming_source")
+def upcoming_source(days: int = 14):
+    """Return raw upcoming fixtures pulled from the first available external source,
+    without model predictions. Useful for debugging what the app imported."""
+    # 1) FPL
+    try:
+        import requests as _req
+        today = datetime.utcnow().date()
+        horizon = today + pd.Timedelta(days=int(days))
+        bs = _req.get("https://fantasy.premierleague.com/api/bootstrap-static/", timeout=40)
+        bs.raise_for_status()
+        teams = {t["id"]: (t.get("name") or t.get("short_name") or str(t["id"])) for t in bs.json().get("teams", [])}
+        fx = _req.get("https://fantasy.premierleague.com/api/fixtures/", timeout=60)
+        fx.raise_for_status()
+        rows = []
+        for m in fx.json():
+            kt = m.get("kickoff_time")
+            if not kt:
+                continue
+            try:
+                d = pd.to_datetime(kt).date()
+            except Exception:
+                continue
+            if not (today <= d <= (horizon.date() if hasattr(horizon, 'date') else horizon)):
+                continue
+            home = teams.get(m.get("team_h"))
+            away = teams.get(m.get("team_a"))
+            if not home or not away:
+                continue
+            rows.append({
+                "date": str(d),
+                "home_team": home,
+                "away_team": away,
+                "source": "FPL",
+                "raw": m,
+            })
+        if rows:
+            return {"source": "FPL", "count": len(rows), "events": rows}
+    except Exception as exc:
+        logger.warning(f"FPL fixtures debug fetch failed: {exc}")
+
+    # 2) football-data.org
+    token = os.getenv("FOOTBALL_DATA_API_TOKEN")
+    if token:
+        try:
+            base = "https://api.football-data.org/v4/competitions/PL/matches"
+            today = datetime.utcnow().date()
+            date_from = today.isoformat()
+            date_to = (today + pd.Timedelta(days=int(days))).date().isoformat()
+            import requests as _req
+            r = _req.get(
+                base,
+                params={"dateFrom": date_from, "dateTo": date_to, "status": "SCHEDULED,TIMED", "limit": 200},
+                headers={"X-Auth-Token": token},
+                timeout=20,
+            )
+            r.raise_for_status()
+            data = r.json()
+            rows = []
+            for m in data.get("matches", []):
+                utc_date = m.get("utcDate")
+                try:
+                    d = pd.to_datetime(utc_date).date()
+                except Exception:
+                    continue
+                home = m.get("homeTeam", {}).get("shortName") or m.get("homeTeam", {}).get("name")
+                away = m.get("awayTeam", {}).get("shortName") or m.get("awayTeam", {}).get("name")
+                if not home or not away:
+                    continue
+                rows.append({
+                    "date": str(d),
+                    "home_team": home,
+                    "away_team": away,
+                    "source": "football-data.org",
+                    "raw": m,
+                })
+            if rows:
+                return {"source": "football-data.org", "count": len(rows), "events": rows}
+        except Exception as exc:
+            logger.warning(f"football-data.org debug fetch failed: {exc}")
+
+    # 3) TheSportsDB
+    try:
+        tsdb_key = os.getenv("THESPORTSDB_API_KEY", "1")
+        import requests as _req
+        today = datetime.utcnow().date()
+        horizon = today + pd.Timedelta(days=int(days))
+        r3 = _req.get(
+            f"https://www.thesportsdb.com/api/v1/json/{tsdb_key}/eventsseason.php",
+            params={"id": 4328, "s": f"{today.year if today.month>=8 else today.year-1}-{(today.year if today.month>=8 else today.year-1)+1}"},
+            timeout=25,
+        )
+        if r3.ok:
+            data3 = r3.json() or {}
+            events3 = data3.get("events") or []
+            rows = []
+            for e in events3:
+                dstr = e.get("dateEvent")
+                if not dstr:
+                    continue
+                try:
+                    d = pd.to_datetime(dstr).date()
+                except Exception:
+                    continue
+                if not (today <= d <= (horizon.date() if hasattr(horizon, 'date') else horizon)):
+                    continue
+                home = e.get("strHomeTeam")
+                away = e.get("strAwayTeam")
+                if not home or not away:
+                    continue
+                rows.append({
+                    "date": str(d),
+                    "home_team": home,
+                    "away_team": away,
+                    "source": "TheSportsDB",
+                    "raw": e,
+                })
+            if rows:
+                return {"source": "TheSportsDB", "count": len(rows), "events": rows}
+    except Exception as exc:
+        logger.warning(f"TheSportsDB debug fetch failed: {exc}")
+
+    return {"source": "none", "events": []}
+
+
 @app.get("/recent_results")
 def recent_results(days: int = 30):
     # Find latest season CSV in data directory
@@ -566,10 +692,6 @@ def recent_results(days: int = 30):
         total_goals = float(pd.to_numeric(row.get("FTHG", 0), errors="coerce") + pd.to_numeric(row.get("FTAG", 0), errors="coerce"))
         total_cards = float(pd.to_numeric(row.get("HY", 0), errors="coerce") + pd.to_numeric(row.get("AY", 0), errors="coerce") + pd.to_numeric(row.get("HR", 0), errors="coerce") + pd.to_numeric(row.get("AR", 0), errors="coerce"))
         total_corners = float(pd.to_numeric(row.get("HC", 0), errors="coerce") + pd.to_numeric(row.get("AC", 0), errors="coerce"))
-        # Offsides if available
-        ho = pd.to_numeric(row.get("HO", 0), errors="coerce") if "HO" in df.columns else 0
-        ao = pd.to_numeric(row.get("AO", 0), errors="coerce") if "AO" in df.columns else 0
-        total_offsides = float((0 if np.isnan(ho) else ho) + (0 if np.isnan(ao) else ao))
         results.append({
             "date": str(row["Date"]),
             "home_team": str(row.get("HomeTeam")),
@@ -577,7 +699,6 @@ def recent_results(days: int = 30):
             "total_goals": total_goals,
             "total_cards": total_cards,
             "total_corners": total_corners,
-            "total_offsides": total_offsides,
         })
     # Sort most recent first
     results = sorted(results, key=lambda r: r["date"], reverse=True)

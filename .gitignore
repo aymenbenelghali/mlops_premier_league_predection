@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+.venv*/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Data and model artifacts
+mlruns/
+models/
+data/*.pkl
+data/*.joblib
+
+# OS
+.DS_Store
+thumbs.db
+
+# Logs
+*.log
+
+# Editor
+.vscode/

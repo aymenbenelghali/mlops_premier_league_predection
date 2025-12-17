@@ -78,7 +78,10 @@ RELEVANT_COLUMNS = [
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     # football-data sometimes uses different date formats; try parse flexibly
     df = df.copy()
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True, infer_datetime_format=True)
+    # `infer_datetime_format` is deprecated in recent pandas versions — remove it.
+    # If your date strings follow a strict format, consider passing `format="%d/%m/%Y"`
+    # for faster and stricter parsing.
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
     return df
 
 

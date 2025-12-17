@@ -4,34 +4,86 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Premier League Predictions</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/static/styles.css" />
   <script defer src="/static/app.js"></script>
-  </head>
-  <body>
-    <header class="hero">
-      <img class="logo" alt="Premier League" src="https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg" />
-      <div>
-        <h1>Premier League Predictions</h1>
-        <p>Multi-target XGBoost: goals, cards, corners, offsides.</p>
+</head>
+<body>
+  <div class="stars"></div>
+  
+  <header class="hero">
+    <div class="hero-content">
+      <div class="logo-container">
+        <img class="logo" alt="Premier League" src="https://upload.wikimedia.org/wikipedia/en/f/f2/Premier_League_Logo.svg" />
       </div>
-    </header>
+      <div class="hero-text">
+        <h1><i class="fas fa-futbol"></i> Premier League Predictions</h1>
+        <p>Advanced AI-powered match analytics using multi-target XGBoost</p>
+      </div>
+    </div>
+  </header>
 
-    <div class="card">
-      <div class="card-title">
-        <h2>Upcoming (next 14 days)</h2>
-        <button id="btnFetch" class="btn">Refresh</button>
+  <main class="container">
+    <section class="stats-bar">
+      <div class="stat-item">
+        <i class="fas fa-brain"></i>
+        <span id="model-name">Model: XGBoost + LSTM</span>
       </div>
-      <div id="fixtures" class="table-wrap"></div>
+      <div class="stat-item">
+        <i class="fas fa-target"></i>
+        <span>3 Targets: Goals • Cards • Corners</span>
+      </div>
+      <div class="stat-item">
+        <i class="fas fa-database"></i>
+        <span>Real-time Updates</span>
+      </div>
+    </section>
+
+    <div style="margin-bottom: 30px; text-align: center;">
+      <label for="model-select" style="color: var(--text-secondary); font-weight: 600; margin-right: 10px;">
+        <i class="fas fa-sliders-h"></i> Choose Model:
+      </label>
+      <select id="model-select" style="padding: 10px 15px; border-radius: 8px; border: 1px solid var(--accent-purple); background: var(--card-bg); color: var(--text-primary); font-weight: 600; cursor: pointer;">
+        <option value="xgboost">🌳 XGBoost (Gradient Boosting)</option>
+        <option value="lstm">🧠 LSTM (Neural Network)</option>
+      </select>
     </div>
 
-    <div class="card">
-      <div class="card-title">
-        <h2>Last 30 days - Results</h2>
-        <button id="btnRecent" class="btn">Refresh</button>
+    <div class="card-grid">
+      <div class="card card-upcoming">
+        <div class="card-header">
+          <div class="header-title">
+            <i class="fas fa-calendar-alt"></i>
+            <h2>Upcoming Matches</h2>
+            <span class="subtitle">Next 14 days</span>
+          </div>
+          <button id="btnFetch" class="btn btn-primary">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+        <div id="fixtures" class="table-wrap"></div>
       </div>
-      <div id="recent" class="table-wrap"></div>
+
+      <div class="card card-results">
+        <div class="card-header">
+          <div class="header-title">
+            <i class="fas fa-history"></i>
+            <h2>Recent Results</h2>
+            <span class="subtitle">Last 30 days</span>
+          </div>
+          <button id="btnRecent" class="btn btn-secondary">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
+        </div>
+        <div id="recent" class="table-wrap"></div>
+      </div>
     </div>
-  </body>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2025 Premier League Predictions. Powered by ML.</p>
+  </footer>
+</body>
 </html>
 
 

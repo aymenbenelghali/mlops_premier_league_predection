@@ -25,7 +25,6 @@ TARGETS = [
     "total_goals",
     "total_cards",
     "total_corners",
-    "total_offsides",
 ]
 
 
@@ -48,11 +47,9 @@ def select_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, List[
         "home_avg_goals",
         "home_avg_cards",
         "home_avg_corners",
-        "home_avg_offsides",
         "away_avg_goals",
         "away_avg_cards",
         "away_avg_corners",
-        "away_avg_offsides",
         "is_weekend",
         "year",
         "month",

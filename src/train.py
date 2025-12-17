@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(nam
 logger = logging.getLogger(__name__)
 
 
-TARGETS = ["total_goals", "total_cards", "total_corners", "total_offsides"]
+TARGETS = ["total_goals", "total_cards", "total_corners"]
 
 
 def get_model_pipeline(scale: bool) -> Pipeline:
