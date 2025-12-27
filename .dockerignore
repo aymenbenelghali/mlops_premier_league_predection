@@ -1,26 +1,52 @@
+# VCS
 .git
 .gitignore
+
+# Python artifacts
 __pycache__
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .Python
+
+# Virtual envs
 env/
 venv/
-.venv/
+.venv*/
+.env/
+
+# Build/dist
 build/
 dist/
 *.egg-info
+.dist/
+
+# ML artifacts and large data
 mlruns/
-data/*.csv
-models/*.pkl
-models/*.joblib
+mlflow.db
+mlruns.db
+# data/
+# models/
+# *.pt
+# *.pth
+# *.h5
+# *.onnx
+# *.joblib
+# *.pkl
+
+# Logs, plots, notebooks
 plots/
 *.log
 *.png
 *.jpg
 *.jpeg
 *.gif
-node_modules/
+*.ipynb
 *.ipynb_checkpoints
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
 

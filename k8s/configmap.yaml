@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pl-predictor-config
+  namespace: pl-prediction
+data:
+  ROLLING_WINDOW: "5"
+  SEASONS_BACK: "8"
+  LEAGUE_CODE: "E0"
+  LOG_LEVEL: "INFO"

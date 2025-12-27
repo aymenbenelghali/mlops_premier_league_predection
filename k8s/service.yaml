@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pl-predictor-svc
+  namespace: pl-prediction
+spec:
+  type: LoadBalancer # Change to ClusterIP if using Ingress
+  selector:
+    app: pl-predictor
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 5000

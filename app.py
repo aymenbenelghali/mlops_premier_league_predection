@@ -383,7 +383,7 @@ async def get_recent_results():
         df["Date"] = pd.to_datetime(df["Date"], errors="coerce", dayfirst=True)
         
         today = pd.Timestamp.now().normalize()
-        past = df[df["Date"] < today].tail(10).sort_values("Date", ascending=False)
+        past = df[df["Date"] < today].tail(50).sort_values("Date", ascending=False)
         
         results = []
         for _, row in past.iterrows():

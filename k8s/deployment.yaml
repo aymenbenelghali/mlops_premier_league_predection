@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pl-predictor
+  namespace: pl-prediction
+  labels:
+    app: pl-predictor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pl-predictor
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: pl-predictor
+    spec:
+      containers:
+        - name: pl-predictor
+          image: aymen/pl-predictor:latest # Replace with your actual image repo
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: pl-predictor-config
+          env:
+            - name: DATA_DIR
+              value: "/app/data"
+            - name: MODELS_DIR
+              value: "/app/models"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/models
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /api/models
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
